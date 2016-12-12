@@ -1,0 +1,99 @@
+---
+title: "Barbell Lifts analysis"
+author: "Devashish Sharma"
+date: "December 12, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE, tidy=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Use data from fitness trackers in order to quantify how well people do barbell lifts
+
+### Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+### Synopsis
+
+The basic goal of this analysis is to use the personal activity data generated from fitness trackers in order to quantify how well people are exercising. In order to determine this we have a train set. We will split this into a training and validation set. We will then use the training set to train the model. Using the model, we will predict the class of each dumbell bicep curl in the validation set. Then we will check for the accuracy of the model in the validation set. If the model is accurate we will proceed to apply the it to test set for prediction.
+
+### Data Processing
+
+
+```{r dataProcess}
+library(caret)
+library(randomForest)
+
+train_set<-read.csv("pml-training.csv")
+test_set<-read.csv("pml-testing.csv")
+
+
+```
+
+#### Predictor Selection
+We remove variables which are near zero variance, which have NA values and which are irrelevant.
+
+```{r selectpred}
+set.seed(1234)
+# Remove near zero variance variables
+training_nz<-train_set[,-nearZeroVar(train_set)]
+
+# Identify columns with NAs
+natrain<-is.na(training_nz)
+
+# Remove columns with NAs
+train_clean<-training_nz[,names(which(colSums(natrain) == 0))]
+
+# Remove first 6 columns which contain items such as user name and time stamp which will not act as predictors
+train_clean<-train_clean[,-c(1,2,3,4,5,6)]
+```
+
+
+### Partition the data in order to create training and validation sets.
+
+```{r trainvalid}
+set.seed(1234)
+inTrain <- createDataPartition(y=train_clean$classe, p=0.6, list=FALSE)
+training<-train_clean[inTrain,]
+validation<-train_clean[-inTrain,]
+dim(training)
+dim(validation)
+
+```
+
+
+
+### Random Forest model
+
+Random Forest model is run on the training data set
+Then the model is used to predict on the validation set
+Finally the accuracy of that prediction is checked
+
+```{r randomFor}
+# Create randomForest model
+modFitRF<-randomForest(classe~.,data=training)
+
+# Predict values in prediction set
+predRFV<-predict(modFitRF,newdata=validation)
+
+# USe confusionMatrix to determine accuracy
+confusionMatrix(predRFV,validation$classe)$overall[1]
+
+```
+
+As the accuracy is of the random forest method is very high and hence the error low, we can now use this model to get predictions for the test set.
+
+### Prediction on the test set
+
+Now the randomForest model is used to predict the test data and display the outcome from our prediction model for the test set.
+```{r predTest}
+# Predict values in prediction set
+predRFT<-predict(modFitRF,newdata=test_set)
+
+# create the outcome data frame
+outcome<-cbind(test_set[,c(1,2,5)],predRFT)
+outcome
+
+```
+
